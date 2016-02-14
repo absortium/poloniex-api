@@ -7,8 +7,8 @@ from pprintpp import pprint as print
 
 from poloniex.api import TradingApi, PublicApi, PushApi
 
-API_KEY = "PCCD7XFZ-FMFB8UOT-SAUH774K-IHNW7M2N"
-API_SECRET = "7088d5ecdc029593aec888481d68f4d07ac061a817970d127962f00424a8860fac41b3db1e163462b56aa7a175d7484714e33db349a6829c9ae472a7098788ea"
+API_KEY = ""
+API_SECRET = ""
 
 
 class Poloniex():
