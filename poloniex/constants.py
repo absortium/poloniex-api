@@ -18,6 +18,26 @@ CURRENCY_PAIRS = [
     'BTC_SJCX', 'BTC_LTC', 'BTC_GAP', 'BTC_HYP'
 ]
 
+MESSAGES_TYPES = {
+    "HELLO": 1,
+    "WELCOME": 2,
+    "ABORT": 3,
+    "GOODBUY": 6,
+    "SUBSCRIBE": 32,
+    "SUBSCRIBED": 33,
+    "EVENT": 36,
+    "ERROR": 8,
+    "UNSUBSCRIBED": 35
+}
+AVAILABLE_SUBSCRIPTIONS = [
+    'footer',
+    'ticker',
+    'trollbox',
+    'alerts',
+    'heartbeat',
+    'trades'
+]
+
 HELLO_MSG = [1, "realm1", {
     "roles": {
         "caller": {

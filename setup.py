@@ -10,12 +10,12 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md')) as readme:
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 # read requirements from requirements.txt
-install_reqs = [str(ir.req) for ir in parse_requirements('requirements.txt')]
+install_reqs = [str(ir.req) for ir in parse_requirements('requirements.txt', session=False)]
 
 setup(
     name='poloniex',
     version='0.1',
-    packages=find_packages(),
+    packages=find_packages('poloniex', exclude=['tests']),
     include_package_data=True,
     description='Python Poloniex API',
     long_description=README,

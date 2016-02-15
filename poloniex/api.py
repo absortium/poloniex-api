@@ -1,4 +1,4 @@
-__author__ = 'andrey.samokhvalov21@yandex.ru'
+__author__ = 'andrew.shvv@gmail.com'
 
 import hashlib
 import hmac
@@ -11,72 +11,74 @@ from datetime import datetime, timedelta
 from poloniex import constants
 
 
-def subscribe(topic, counter=1):
+def subscribe(topic):
     def decorator(handler):
-        PushApi.subscribe(topic, handler, counter)
-
+        PushApi.subscribe(topic, handler)
         return handler
 
     return decorator
 
 
 class PushApi():
-    subscriptions = {
-        'footer': None,
-        'ticker': None,
-        'trollbox': None,
-        'alerts': None,
-        'heartbeat': None,
-        'trades': None
-    }
+    waiting_subscriptions = {}
+    registred_subscriptions = {}
 
     def __init__(self, client):
         self.url = 'wss://api.poloniex.com'
         self.client = client
 
     @classmethod
-    def subscribe(cls, topic, handler, counter):
-        subscription = {
-            'request_id': random.randint(10 ** 15, 10 ** 16-1),
-            'handler': handler,
-            'subscription_id': None,
-            'counter': counter
-        }
-        if topic not in cls.subscriptions.keys():
+    def subscribe(cls, topic, handler):
+        if topic not in constants.AVAILABLE_SUBSCRIPTIONS:
             raise Exception('There is no such subscription name')
 
-        cls.subscriptions.update(topic=subscription)
+        request_id = random.randint(10 ** 14, 10 ** 15-1)
+        subscription = {
+            'topic': topic,
+            'handler': handler,
+        }
 
-    async def start(self):
+        cls.waiting_subscriptions.update({request_id: subscription})
+
+    async def start(self, application):
         async with self.client.ws_connect(self.url, protocols=('wamp.2.json',)) as ws:
             ws.send_str(json.dumps(constants.HELLO_MSG))
 
-            welcome_msg = await ws.receive()
-            welcome_msg = welcome_msg.data
-            # TODO: Handle error response
-
-            for topic, subscription in self.subscriptions.items():
-                subscription_msg = [32, subscription['request_id'], {}, topic]
-                ws.send_str(json.dumps(subscription_msg))
-
-                # TODO: Handle error response
-                msg = await ws.receive()
-                answer = json.loads(msg.data)
-                subscription_id = answer[2]
-                subscription['subscription_id'] = subscription_id
-
-            counter = 0
             async for msg in ws:
-                print(msg.data)
-                counter += 1
-                if counter == 5:
-                    break
-                    # if msg.tp == aiohttp.MsgType.text:
-                    #     handler(msg.data)
-                    # elif msg.tp == aiohttp.MsgType.closed:
-                    #     break
-                    # elif msg.tp == aiohttp.MsgType.error:
-                    #     break
+                # TODO: Create classes for all type of messeges or stole it from autobahn
+                answer = json.loads(msg.data)
+                code = answer[0]
+
+                if code == constants.MESSAGES_TYPES["SUBSCRIBED"]:
+                    request_id = answer[1]
+                    subscription_id = answer[2]
+
+                    subscription = self.waiting_subscriptions[request_id]
+                    subscription['request_id'] = request_id
+                    self.registred_subscriptions[subscription_id] = subscription
+                    del self.waiting_subscriptions[request_id]
+
+                    if self.waiting_subscriptions is {}:
+                        del self.waiting_subscriptions
+
+                elif code == constants.MESSAGES_TYPES["WELCOME"]:
+                    for request_id, subscription in self.waiting_subscriptions.items():
+                        subscription_msg = [constants.MESSAGES_TYPES["SUBSCRIBE"], request_id, {},
+                                            subscription['topic']]
+                        subscription_msg = json.dumps(subscription_msg)
+                        ws.send_str(subscription_msg)
+                elif code == constants.MESSAGES_TYPES["EVENT"]:
+                    subscription_id = answer[1]
+                    subscription = self.registred_subscriptions[subscription_id]
+                    data = answer[4]
+
+                    handler = subscription['handler']
+                    handler(application, data)
+
+                elif code == constants.MESSAGES_TYPES["UNSUBSCRIBED"]:
+                    raise Exception("UNSUBSCRIBED")
+                elif code == constants.MESSAGES_TYPES["ABORT"]:
+                    raise Exception("ABORT")
 
 
 class PublicApi():
@@ -146,16 +148,16 @@ class PublicApi():
 
 
 class TradingApi():
-    def __init__(self, client, api_key, secret_key):
+    def __init__(self, client, api_key, api_sec):
 
         if type(api_key) is not str:
             raise Exception('API_KEY must be string')
 
-        if type(secret_key) is not str:
+        if type(api_sec) is not str:
             raise Exception('SECRET_KEY must be string')
 
         self.api_key = api_key
-        self.secret_key = secret_key.encode()
+        self.api_sec = api_sec.encode()
         self.client = client
         self.url = 'https://poloniex.com/tradingApi?'
 
@@ -169,10 +171,9 @@ class TradingApi():
         data.update(nonce=self.nonce)
         kwargs.update(data=data)
 
-        # encode data dict
         e = urllib.parse.urlencode(data).encode()
         auth = {
-            'Sign': hmac.new(self.secret_key, e, hashlib.sha512).hexdigest(),
+            'Sign': hmac.new(self.api_sec, e, hashlib.sha512).hexdigest(),
             'Key': self.api_key
         }
 
