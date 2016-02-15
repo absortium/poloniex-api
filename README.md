@@ -1,3 +1,4 @@
+```python
 from poloniex.api import subscribe
 from poloniex.app import Application
 
@@ -23,3 +24,4 @@ class App(Application):
 
 app = App(api_key=API_KEY, api_sec=API_SECRET)
 app.run()
+```
