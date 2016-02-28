@@ -1,2 +1,4 @@
 asyncio==3.4.3
 aiohttp==0.21.0
+autobahn
+pp-ez

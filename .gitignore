@@ -1,6 +1,8 @@
 docs/_build
 *.pyc
 *.swp
-/.idea
+.idea
 env
 *.egg-info
+dist
+build

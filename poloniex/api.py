@@ -2,94 +2,89 @@ __author__ = 'andrew.shvv@gmail.com'
 
 import hashlib
 import hmac
-import json
-import random
+import logging
 import time
 import urllib
 from datetime import datetime, timedelta
 
-from poloniex import constants
+from . import constants
+from .logger import LogMixin
+from .wamp.client import WAMPClient
 
 
-def subscribe(topic):
-    def decorator(handler):
-        PushApi.subscribe(topic, handler)
-        return handler
+class PushApi(WAMPClient, LogMixin):
+    url = 'wss://api.poloniex.com'
 
-    return decorator
+    def __init__(self, session):
+        LogMixin.__init__(self)
+        WAMPClient.__init__(self, url=self.url, session=session)
 
+    def _ticker(self, handler):
+        async def decorator(data):
+            currency_pair = data[0]
+            last = data[1]
+            lowest_ask = data[2]
+            highest_bid = data[3]
+            percent_change = data[4]
+            base_volume = data[5]
+            quote_volume = data[6]
+            is_frozen = data[7]
+            day_high = data[8]
+            day_low = data[9]
 
-class PushApi():
-    waiting_subscriptions = {}
-    registred_subscriptions = {}
+            kwargs = {
+                'currency_pair': currency_pair,
+                'last': last,
+                'lowest_ask': lowest_ask,
+                'highest_bid': highest_bid,
+                'percent_change': percent_change,
+                'base_volume': base_volume,
+                'quote_volume': quote_volume,
+                'is_frozen': is_frozen,
+                'day_high': day_high,
+                'day_low': day_low
+            }
 
-    def __init__(self, client):
-        self.url = 'wss://api.poloniex.com'
-        self.client = client
+            await handler(**kwargs)
 
-    @classmethod
-    def subscribe(cls, topic, handler):
-        if topic not in constants.AVAILABLE_SUBSCRIPTIONS:
-            raise Exception('There is no such subscription name')
+        return decorator
 
-        request_id = random.randint(10 ** 14, 10 ** 15-1)
-        subscription = {
-            'topic': topic,
-            'handler': handler,
-        }
+    def _trades(self, handler):
+        async def decorator(data):
+            for event in data:
+                await handler(**event)
 
-        cls.waiting_subscriptions.update({request_id: subscription})
+        return decorator
 
-    async def start(self, application):
-        async with self.client.ws_connect(self.url, protocols=('wamp.2.json',)) as ws:
-            ws.send_str(json.dumps(constants.HELLO_MSG))
+    async def subscribe(self, topic, handler):
+        if topic in constants.CURRENCY_PAIRS:
+            wrapped_handler = self._trades(handler)
+            await super().subscribe(topic=topic, handler=wrapped_handler)
 
-            async for msg in ws:
-                # TODO: Create classes for all type of messeges or stole it from autobahn
-                answer = json.loads(msg.data)
-                code = answer[0]
+        elif topic is "ticker":
+            wrapped_handler = self._ticker(handler)
+            await super().subscribe(topic=topic, handler=wrapped_handler)
 
-                if code == constants.MESSAGES_TYPES["SUBSCRIBED"]:
-                    request_id = answer[1]
-                    subscription_id = answer[2]
+        elif topic in constants.AVAILABLE_SUBSCRIPTIONS:
+            await super().subscribe(topic=topic, handler=handler)
 
-                    subscription = self.waiting_subscriptions[request_id]
-                    subscription['request_id'] = request_id
-                    self.registred_subscriptions[subscription_id] = subscription
-                    del self.waiting_subscriptions[request_id]
-
-                    if self.waiting_subscriptions is {}:
-                        del self.waiting_subscriptions
-
-                elif code == constants.MESSAGES_TYPES["WELCOME"]:
-                    for request_id, subscription in self.waiting_subscriptions.items():
-                        subscription_msg = [constants.MESSAGES_TYPES["SUBSCRIBE"], request_id, {},
-                                            subscription['topic']]
-                        subscription_msg = json.dumps(subscription_msg)
-                        ws.send_str(subscription_msg)
-                elif code == constants.MESSAGES_TYPES["EVENT"]:
-                    subscription_id = answer[1]
-                    subscription = self.registred_subscriptions[subscription_id]
-                    data = answer[4]
-
-                    handler = subscription['handler']
-                    handler(application, data)
-
-                elif code == constants.MESSAGES_TYPES["UNSUBSCRIBED"]:
-                    raise Exception("UNSUBSCRIBED")
-                elif code == constants.MESSAGES_TYPES["ABORT"]:
-                    raise Exception("ABORT")
+        else:
+            raise Exception('Topic not available')
 
 
-class PublicApi():
+class PublicApi(LogMixin):
     url = 'https://poloniex.com/public?'
 
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, session, level=logging.DEBUG):
+        super().__init__()
+        self.session = session
+        self.logger.setLevel(level)
 
     async def api_call(self, *args, **kwargs):
-        async with self.client.get(self.url, *args, **kwargs) as response:
+        self.logger.debug(kwargs)
+        async with self.session.get(self.url, *args, **kwargs) as response:
             response = await response.json()
+
             if ('error' in response) and (response['error'] is not None):
                 raise Exception(response['error'])
 
@@ -146,9 +141,27 @@ class PublicApi():
 
         return await self.api_call(params=params)
 
+    async def returnTradeHistory(self,
+                                 currencyPair='all',
+                                 start=datetime.now()-timedelta(days=1),
+                                 end=datetime.now()):
+        'Returns the past 200 trades for a given market, or all of the trades between a range' \
+        'specified in UNIX timestamps by the "start" and "end" GET parameters.'
 
-class TradingApi():
-    def __init__(self, client, api_key, api_sec):
+        params = {
+            'command': 'returnTradeHistory',
+            'currencyPair': 'BTC_NXT',
+            'start': int(time.mktime(start.timetuple())),
+            'end': int(time.mktime(end.timetuple()))
+        }
+
+        return await self.api_call(params=params)
+
+
+class TradingApi(LogMixin):
+    url = 'https://poloniex.com/tradingApi?'
+
+    def __init__(self, session, api_key, api_sec):
 
         if type(api_key) is not str:
             raise Exception('API_KEY must be string')
@@ -158,8 +171,7 @@ class TradingApi():
 
         self.api_key = api_key
         self.api_sec = api_sec.encode()
-        self.client = client
-        self.url = 'https://poloniex.com/tradingApi?'
+        self.session = session
 
     @property
     def nonce(self):
@@ -182,7 +194,7 @@ class TradingApi():
         headers.update(auth)
         kwargs.update(headers=headers)
 
-        async with self.client.get(self.url, *args, **kwargs) as response:
+        async with self.session.post(self.url, *args, **kwargs) as response:
             response = await response.json()
             if ('error' in response) and (response['error'] is not None):
                 raise Exception(response['error'])
@@ -281,11 +293,14 @@ class TradingApi():
         'You may specify "all" as the currencyPair to receive your trade history for all markets.' \
         'You may optionally specify a range via "start" and/or "end" POST parameters, given in UNIX timestamp format'
 
+        start = int(time.mktime(start.timetuple()))
+        end = int(time.mktime(end.timetuple()))
+
         data = {
             'command': 'returnTradeHistory',
             'currencyPair': currencyPair,
-            'start': time.mktime(start.timetuple()),
-            'end': time.mktime(end.timetuple())
+            'start': start,
+            'end': end
         }
 
         return await self.api_call(data=data)

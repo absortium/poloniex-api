@@ -12,10 +12,12 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 # read requirements from requirements.txt
 install_reqs = [str(ir.req) for ir in parse_requirements('requirements.txt', session=False)]
 
+PACKAGES = find_packages(exclude=['tests'])
+
 setup(
     name='poloniex',
     version='0.1',
-    packages=find_packages('poloniex', exclude=['tests']),
+    packages=PACKAGES,
     include_package_data=True,
     description='Python Poloniex API',
     long_description=README,
