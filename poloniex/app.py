@@ -29,7 +29,7 @@ class Application(LogMixin):
         # after the 'main' function execution we should check - are there any subscription
         # if not than stop execution
         [waiting, registred] = self.push_api.subsciptions
-        if len(waiting) + len(registred) == 0:
+        if len(waiting)+len(registred) == 0:
             await self.push_api.stop()
 
     def run(self, session=None):

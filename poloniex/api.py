@@ -56,9 +56,33 @@ class PushApi(WAMPClient, LogMixin):
 
         return decorator
 
+    def _trollbox(self, handler):
+        async def decorator(data):
+            type_ = data[0]
+            message_id = data[1]
+            username = data[2]
+            message = data[3]
+            reputation = data[4]
+
+            kwargs = {
+                'type': type_,
+                'message_id': message_id,
+                'username': username,
+                'message': message,
+                'reputation': reputation
+            }
+
+            await handler(**kwargs)
+
+        return decorator
+
     async def subscribe(self, topic, handler):
         if topic in constants.CURRENCY_PAIRS:
             wrapped_handler = self._trades(handler)
+            await super().subscribe(topic=topic, handler=wrapped_handler)
+
+        elif topic is "trollbox":
+            wrapped_handler = self._trollbox(handler)
             await super().subscribe(topic=topic, handler=wrapped_handler)
 
         elif topic is "ticker":
