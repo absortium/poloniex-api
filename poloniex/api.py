@@ -50,9 +50,10 @@ class PushApi(WAMPClient):
 
         return decorator
 
-    def _trades(self, handler):
+    def _trades(self, topic, handler):
         async def decorator(data):
             for event in data:
+                event['currency_pair'] = topic
                 await handler(**event)
 
         return decorator
@@ -84,7 +85,7 @@ class PushApi(WAMPClient):
 
     async def subscribe(self, topic, handler):
         if topic in constants.CURRENCY_PAIRS:
-            wrapped_handler = self._trades(handler)
+            wrapped_handler = self._trades(topic, handler)
             await super().subscribe(topic=topic, handler=wrapped_handler)
 
         elif topic is "trollbox":
