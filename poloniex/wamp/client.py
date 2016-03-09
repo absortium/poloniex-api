@@ -1,12 +1,17 @@
 import random
 
+import logging
+
 from autobahn.wamp import message
 from autobahn.wamp.role import DEFAULT_CLIENT_ROLES
 from autobahn.wamp.serializer import JsonSerializer
+
+from poloniex.logger import LogMixin
+
 __author__ = 'andrew.shvv@gmail.com'
 
 
-class WAMPClient():
+class WAMPClient(LogMixin):
     def __init__(self,
                  url,
                  session,
@@ -14,7 +19,6 @@ class WAMPClient():
                  realm='realm1',
                  protocols=('wamp.2.json',),
                  serializer=JsonSerializer()):
-
         self._url = url
         self._session = session
         self._protocols = protocols
@@ -23,7 +27,7 @@ class WAMPClient():
         self._serializer = serializer
         self._ws = None
         self._is_connected = False
-        self.handlers = {
+        self._handlers = {
             message.Welcome.MESSAGE_TYPE: self._on_welcome,
             message.Subscribed.MESSAGE_TYPE: self._on_subscribed,
             message.Event.MESSAGE_TYPE: self._on_event,
@@ -31,6 +35,14 @@ class WAMPClient():
 
         self._waiting_subscriptions = {}
         self._registered_subscriptions = {}
+        self.logger.setLevel(logging.DEBUG)
+
+    def get_handler(self, message_type):
+
+        handler = self._handlers.get(message_type)
+        if handler is None:
+            handler = self._on_other
+        return handler
 
     @property
     def subsciptions(self):
@@ -51,7 +63,6 @@ class WAMPClient():
         await handler(event.args)
 
     async def _on_subscribed(self, msg):
-
         request_id = msg.request
         subscription_id = msg.subscription
 
@@ -80,12 +91,8 @@ class WAMPClient():
 
             async for ws_msg in ws:
                 wamp_msg = self._recv(ws_msg.data)
-                wamp_handler = self.handlers.get(wamp_msg.MESSAGE_TYPE)
-
-                if wamp_handler is None:
-                    await self._on_other(wamp_msg)
-                else:
-                    await wamp_handler(wamp_msg)
+                wamp_handler = self.get_handler(wamp_msg.MESSAGE_TYPE)
+                await wamp_handler(wamp_msg)
 
     async def stop(self):
         # TODO: send stop, receive ok, close socket

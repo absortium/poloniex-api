@@ -7,12 +7,13 @@ import time
 import urllib
 from datetime import datetime, timedelta
 
-from . import constants
-from .logger import LogMixin
-from .wamp.client import WAMPClient
+from poloniex.logger import LogMixin
+
+from poloniex.wamp.client import WAMPClient
+from poloniex import constants
 
 
-class PushApi(WAMPClient, LogMixin):
+class PushApi(WAMPClient):
     url = 'wss://api.poloniex.com'
 
     def __init__(self, session):
@@ -58,17 +59,22 @@ class PushApi(WAMPClient, LogMixin):
 
     def _trollbox(self, handler):
         async def decorator(data):
+            self.logger.debug(data)
+
+            if len(data) != 5:
+                return
+
             type_ = data[0]
             message_id = data[1]
             username = data[2]
-            message = data[3]
+            text = data[3]
             reputation = data[4]
 
             kwargs = {
-                'type': type_,
-                'message_id': message_id,
+                'id': message_id,
                 'username': username,
-                'message': message,
+                'type': type_,
+                'text': text,
                 'reputation': reputation
             }
 

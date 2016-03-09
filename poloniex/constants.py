@@ -26,31 +26,3 @@ AVAILABLE_SUBSCRIPTIONS += [
     'alerts',
     'heartbeat',
 ]
-
-HELLO_MSG = [1, "realm1", {
-    "roles": {
-        "caller": {
-            "features": {
-                "caller_identification": True,
-                "progressive_call_results": True
-            }
-        },
-        "callee": {
-            "features": {
-                "progressive_call_results": True
-            }
-        },
-        "publisher": {
-            "features": {
-                "subscriber_blackwhite_listing": True,
-                "publisher_exclusion": True,
-                "publisher_identification": True
-            }
-        },
-        "subscriber": {
-            "features": {
-                "publisher_identification": True
-            }
-        }
-    }
-}]
