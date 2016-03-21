@@ -2,8 +2,8 @@ import asyncio
 
 import aiohttp
 
-from .api import TradingApi, PublicApi, PushApi
-from .logger import LogMixin
+from poloniex.api import TradingApi, PublicApi, PushApi
+from poloniex.logger import LogMixin
 
 __author__ = 'andrew.shvv@gmail.com'
 
@@ -21,7 +21,7 @@ class Application(LogMixin):
         return self._trading_api
 
     async def main(self):
-        raise NotImplementedError("method 'main' should be overriden!")
+        raise NotImplementedError("method 'main' should be overridden!")
 
     async def _main(self):
         await self.main()

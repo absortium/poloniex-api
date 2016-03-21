@@ -7,10 +7,9 @@ import time
 import urllib
 from datetime import datetime, timedelta
 
-from poloniex.logger import LogMixin
-
-from poloniex.wamp.client import WAMPClient
 from poloniex import constants
+from poloniex.logger import LogMixin
+from poloniex.wamp.client import WAMPClient
 
 
 class PushApi(WAMPClient):
@@ -60,8 +59,6 @@ class PushApi(WAMPClient):
 
     def _trollbox(self, handler):
         async def decorator(data):
-            self.logger.debug(data)
-
             if len(data) != 5:
                 return
 

@@ -46,7 +46,7 @@ class LogMixin(object):
         ch.setLevel(logging.DEBUG)
 
         # create formatter
-        formatter = logging.Formatter('Level: %(levelname)s - %(message)s')
+        formatter = logging.Formatter('\nLevel: %(levelname)s - %(message)s')
 
         # add formatter to ch
         ch.setFormatter(formatter)
