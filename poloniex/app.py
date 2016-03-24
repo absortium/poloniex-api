@@ -32,20 +32,23 @@ class Application(LogMixin):
         if len(waiting)+len(registred) == 0:
             await self.push_api.stop()
 
-    def _start(self, loop, session):
+    def _start(self, loop, session, run_push_api=True):
         self.public_api = PublicApi(session=session)
         self.push_api = PushApi(session=session)
 
         if (self.api_key is not None) and (self.api_sec is not None):
             self._trading_api = TradingApi(api_key=self.api_key, api_sec=self.api_sec, session=session)
 
-        g = asyncio.gather(self.push_api.start(), self._main())
+        if run_push_api:
+            g = asyncio.gather(self.push_api.start(), self._main())
+        else:
+            g = asyncio.gather(self._main())
         loop.run_until_complete(g)
 
-    def run(self, session=None):
+    def run(self, session=None, run_push_api=True):
         loop = asyncio.get_event_loop()
         if session is None:
             with aiohttp.ClientSession(loop=loop) as session:
-                self._start(loop, session)
+                self._start(loop, session, run_push_api)
         else:
-            self._start(loop, session)
+            self._start(loop, session, run_push_api)

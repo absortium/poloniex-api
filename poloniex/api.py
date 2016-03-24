@@ -377,3 +377,11 @@ class TradingApi(LogMixin):
         }
 
         return await self.api_call(data=data)
+
+    async def returnActiveLoans(self, ):
+        data = {
+            'command': 'returnActiveLoans'
+        }
+
+        return await self.api_call(data=data)
+
