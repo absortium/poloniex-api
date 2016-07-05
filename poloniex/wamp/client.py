@@ -1,6 +1,5 @@
-import random
-
 import logging
+import random
 
 from autobahn.wamp import message
 from autobahn.wamp.role import DEFAULT_CLIENT_ROLES
@@ -19,6 +18,9 @@ class WAMPClient(LogMixin):
                  realm='realm1',
                  protocols=('wamp.2.json',),
                  serializer=JsonSerializer()):
+
+        super().__init__()
+
         self._url = url
         self._session = session
         self._protocols = protocols
@@ -99,8 +101,8 @@ class WAMPClient(LogMixin):
         # if self._ws is not None:
         await self._ws.close()
 
-    async def subscribe(self, handler, topic):
-        request_id = random.randint(10 ** 14, 10 ** 15-1)
+    def subscribe(self, handler, topic):
+        request_id = random.randint(10 ** 14, 10 ** 15 - 1)
         subscription = {
             'topic': topic,
             'handler': handler

@@ -34,6 +34,7 @@ class PoloniexLogger(logging.Logger):
 class LogMixin(object):
     def __init__(self):
         super().__init__()
+
         # override the class
         logging.setLoggerClass(PoloniexLogger)
 

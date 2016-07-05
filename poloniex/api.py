@@ -1,3 +1,5 @@
+import inspect
+
 __author__ = 'andrew.shvv@gmail.com'
 
 import hashlib
@@ -45,7 +47,10 @@ class PushApi(WAMPClient):
                 'day_low': day_low
             }
 
-            await handler(**kwargs)
+            if inspect.isgeneratorfunction(handler):
+                await handler(**kwargs)
+            else:
+                handler(**kwargs)
 
         return decorator
 
@@ -53,7 +58,11 @@ class PushApi(WAMPClient):
         async def decorator(data):
             for event in data:
                 event['currency_pair'] = topic
-                await handler(**event)
+
+                if inspect.isgeneratorfunction(handler):
+                    await handler(**event)
+                else:
+                    handler(**event)
 
         return decorator
 
@@ -76,25 +85,28 @@ class PushApi(WAMPClient):
                 'reputation': reputation
             }
 
-            await handler(**kwargs)
+            if inspect.isgeneratorfunction(handler):
+                await handler(**kwargs)
+            else:
+                handler(**kwargs)
 
         return decorator
 
-    async def subscribe(self, topic, handler):
+    def subscribe(self, topic, handler):
         if topic in constants.CURRENCY_PAIRS:
             wrapped_handler = self._trades(topic, handler)
-            await super().subscribe(topic=topic, handler=wrapped_handler)
+            super().subscribe(topic=topic, handler=wrapped_handler)
 
         elif topic is "trollbox":
             wrapped_handler = self._trollbox(handler)
-            await super().subscribe(topic=topic, handler=wrapped_handler)
+            super().subscribe(topic=topic, handler=wrapped_handler)
 
         elif topic is "ticker":
             wrapped_handler = self._ticker(handler)
-            await super().subscribe(topic=topic, handler=wrapped_handler)
+            super().subscribe(topic=topic, handler=wrapped_handler)
 
         elif topic in constants.AVAILABLE_SUBSCRIPTIONS:
-            await super().subscribe(topic=topic, handler=handler)
+            super().subscribe(topic=topic, handler=handler)
 
         else:
             raise Exception('Topic not available')
@@ -146,7 +158,7 @@ class PublicApi(LogMixin):
 
     async def returnChartData(self,
                               currencyPair,
-                              start=datetime.now()-timedelta(days=1),
+                              start=datetime.now() - timedelta(days=1),
                               end=datetime.now(),
                               period=300):
         params = {
@@ -171,9 +183,9 @@ class PublicApi(LogMixin):
 
     async def returnTradeHistory(self,
                                  currencyPair='all',
-                                 start=datetime.now()-timedelta(days=1),
+                                 start=datetime.now() - timedelta(days=1),
                                  end=datetime.now()):
-        'Returns the past 200 trades for a given market, or all of the trades between a range' \
+        'Returns the past 200 updates_handler for a given market, or all of the updates_handler between a range' \
         'specified in UNIX timestamps by the "start" and "end" GET parameters.'
 
         params = {
@@ -190,6 +202,7 @@ class TradingApi(LogMixin):
     url = 'https://poloniex.com/tradingApi?'
 
     def __init__(self, session, api_key, api_sec):
+        super().__init__()
 
         if type(api_key) is not str:
             raise Exception('API_KEY must be string')
@@ -286,7 +299,7 @@ class TradingApi(LogMixin):
 
         return response
 
-    async def returnDepositsWithdrawals(self, start=datetime.now()-timedelta(days=1), end=datetime.now()):
+    async def returnDepositsWithdrawals(self, start=datetime.now() - timedelta(days=1), end=datetime.now()):
         'Returns your deposit and withdrawal history within a range, specified by the "start" and "end"' \
         'POST parameters, both of which should be given as UNIX timestamps.'
 
@@ -315,7 +328,7 @@ class TradingApi(LogMixin):
 
     async def returnTradeHistory(self,
                                  currencyPair='all',
-                                 start=datetime.now()-timedelta(days=1),
+                                 start=datetime.now() - timedelta(days=1),
                                  end=datetime.now()):
         'Returns your trade history for a given market, specified by the "currencyPair" POST parameter.' \
         'You may specify "all" as the currencyPair to receive your trade history for all markets.' \
@@ -384,4 +397,3 @@ class TradingApi(LogMixin):
         }
 
         return await self.api_call(data=data)
-
