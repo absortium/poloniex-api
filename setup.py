@@ -18,7 +18,7 @@ setup(
     include_package_data=True,
     description='Python Poloniex API',
     long_description=README,
-    url='https://github.com/AndrewSamokhvalov/poloniex.git',
+    url='https://github.com/absortium/poloniex.git',
     author='Andrey Samokhvalov',
     author_email='andrew.shvv@gmail.com',
     install_requires=[
