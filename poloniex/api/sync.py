@@ -73,7 +73,7 @@ class TradingApi(BaseTradingApi):
     url = "https://poloniex.com/tradingApi?"
 
     def api_call(self, *args, **kwargs):
-        data, headers = self.init_secure_date(kwargs.get('data', {}), kwargs.get('headers', {}))
+        data, headers = self.secure_request(kwargs.get('data', {}), kwargs.get('headers', {}))
 
         kwargs['data'] = data
         kwargs['headers'] = headers

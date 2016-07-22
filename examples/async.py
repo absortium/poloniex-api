@@ -1,6 +1,4 @@
-from logging import DEBUG
-
-from poloniex.app import Application
+from poloniex.app import AsyncApp
 
 __author__ = 'andrew.shvv@gmail.com'
 
@@ -8,11 +6,7 @@ API_KEY = "YOUR_API_KEY"
 API_SECRET = "YOUR_API_SECRET"
 
 
-class App(Application):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger.setLevel(DEBUG)
-
+class App(AsyncApp):
     def ticker(self, **kwargs):
         self.logger.info(kwargs)
 

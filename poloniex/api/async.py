@@ -90,21 +90,19 @@ class PushApi:
     url = "wss://api.poloniex.com"
 
     def __init__(self, session):
-        self.logger = logger
         self.wamp = WAMPClient(url=self.url, session=session)
 
     async def start(self):
         await self.wamp.start()
 
     async def stop(self, force=True):
-        self.logger.debug(self.is_subscribed)
         if force or not self.is_subscribed:
             await self.wamp.stop()
 
     @property
     def is_subscribed(self):
         [queue, subscriptions] = self.wamp.subsciptions
-        return False if len(queue) + len(subscriptions) == 0 else True
+        return len(queue) + len(subscriptions) != 0
 
     def subscribe(self, topic, handler):
         if topic in constants.CURRENCY_PAIRS:
@@ -127,8 +125,6 @@ class PushApi:
 
 
 class PublicApi(BasePublicApi):
-    url = "https://poloniex.com/public?"
-
     def __init__(self, session):
         self.session = session
 
@@ -197,15 +193,13 @@ class PublicApi(BasePublicApi):
 
 
 class TradingApi(BaseTradingApi):
-    url = "https://poloniex.com/tradingApi?"
-
     def __init__(self, session, *args, **kwargs):
         self.session = session
 
         super(TradingApi, self).__init__(*args, **kwargs)
 
     async def api_call(self, *args, **kwargs):
-        data, headers = self.init_secure_date(kwargs.get('data', {}), kwargs.get('headers', {}))
+        data, headers = self.secure_request(kwargs.get('data', {}), kwargs.get('headers', {}))
 
         kwargs['data'] = data
         kwargs['headers'] = headers

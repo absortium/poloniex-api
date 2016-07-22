@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import time
 import urllib
-from inspect import isgeneratorfunction
+from inspect import iscoroutinefunction
 
 from poloniex import constants
 from poloniex.error import PoloniexError, AddressAlreadyExist
@@ -15,7 +15,7 @@ logger = getLogger(__name__)
 
 
 def command_operator(func):
-    if isgeneratorfunction(func):
+    if iscoroutinefunction(func):
         async def async_decorator(self, *args, **kwargs):
             method, params = self.get_params(func.__name__)
 
@@ -145,7 +145,7 @@ class BaseTradingApi:
     def nonce(self):
         return int(time.time() * 1000)
 
-    def init_secure_date(self, data, headers):
+    def secure_request(self, data, headers):
         data.update(nonce=self.nonce)
 
         e = urllib.parse.urlencode(data).encode()
@@ -154,7 +154,7 @@ class BaseTradingApi:
             "Key": self.api_key
         }
 
-        headers.update(auth)
+        headers.update(**auth)
         return data, headers
 
     def get_params(self, command, **kwargs):
