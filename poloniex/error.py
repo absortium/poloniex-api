@@ -1,7 +1,10 @@
 __author__ = 'andrew.shvv@gmail.com'
 
 
-class PoloneixError(Exception): pass
+class PoloniexError(Exception): pass
 
 
-class AsyncError(PoloneixError): pass
+class AsyncError(PoloniexError): pass
+
+
+class AddressAlreadyExist(PoloniexError): pass

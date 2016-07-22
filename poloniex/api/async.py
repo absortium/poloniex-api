@@ -1,16 +1,15 @@
-import hashlib
-import hmac
 import inspect
-import logging
-import time
-import urllib
 from datetime import datetime, timedelta
 
 from poloniex import constants
+from poloniex.api.base import command_operator, BasePublicApi, BaseTradingApi
+from poloniex.error import PoloniexError
 from poloniex.logger import getLogger
 from poloniex.wamp.client import WAMPClient
 
 __author__ = "andrew.shvv@gmail.com"
+
+logger = getLogger(__name__)
 
 
 def ticker_wrapper(handler):
@@ -91,12 +90,14 @@ class PushApi:
     url = "wss://api.poloniex.com"
 
     def __init__(self, session):
+        self.logger = logger
         self.wamp = WAMPClient(url=self.url, session=session)
 
     async def start(self):
         await self.wamp.start()
 
     async def stop(self, force=True):
+        self.logger.debug(self.is_subscribed)
         if force or not self.is_subscribed:
             await self.wamp.stop()
 
@@ -125,313 +126,176 @@ class PushApi:
             raise NotImplementedError("Topic not available")
 
 
-class PublicApi:
+class PublicApi(BasePublicApi):
     url = "https://poloniex.com/public?"
 
-    def __init__(self, session, level=logging.DEBUG):
-        super().__init__()
+    def __init__(self, session):
         self.session = session
-        self.logger = getLogger(__name__, level)
 
     async def api_call(self, *args, **kwargs):
         async with self.session.get(self.url, *args, **kwargs) as response:
+            logger.debug(response)
             response = await response.json()
 
             if ("error" in response) and (response["error"] is not None):
-                raise Exception(response["error"])
+                raise PoloniexError(response["error"])
 
             return response
 
+    @command_operator
     async def returnTicker(self):
-        params = {
-            "command": "returnTicker"
-        }
+        """
+        Returns the ticker for all markets
+        """
+        pass
 
-        return await self.api_call(params=params)
+    @command_operator
+    async def return24hVolume(self):
+        """
+        Returns the 24-hour volume for all markets, plus totals for primary currencies.
+        """
+        pass
 
-    async def return24Volume(self):
-        params = {
-            "command": "return24hVolume"
-        }
+    @command_operator
+    async def returnOrderBook(self, currency_pair="all", depth=50):
+        """
+        Returns the order book for a given market, as well as a sequence number for use with the Push API and an indicator
+        specifying whether the market is frozen. You may set currencyPair to "all" to get the order books of all markets
+        """
+        pass
 
-        return await self.api_call(params=params)
-
-    async def returnOrderBook(self, currencyPair="all", depth=50):
-        if (currencyPair != "all") and (currencyPair not in constants.CURRENCY_PAIRS):
-            raise Exception("currencyPair: {} not available".format(currencyPair))
-
-        params = {
-            "command": "returnOrderBook",
-            "currencyPair": currencyPair,
-            "depth": depth
-        }
-
-        return await self.api_call(params=params)
-
+    @command_operator
     async def returnChartData(self,
-                              currencyPair,
+                              currency_pair,
                               start=datetime.now() - timedelta(days=1),
                               end=datetime.now(),
                               period=300):
-        params = {
-            "command": "returnChartData",
-            "currencyPair": currencyPair,
-            "period": period,
-            "start": time.mktime(start.timetuple()),
-            "end": time.mktime(end.timetuple())
-        }
+        """
+        Returns candlestick chart data. Required GET parameters are "currencyPair", "period" (candlestick period in seconds;
+        valid values are 300, 900, 1800, 7200, 14400, and 86400), "start", and "end". "Start" and "end" are given in UNIX
+        timestamp format and used to specify the date range for the data returned.
+        """
+        pass
 
-        if period not in constants.CHART_DATA_PERIODS:
-            raise Exception("Wrong period")
-
-        return await self.api_call(params=params)
-
+    @command_operator
     async def returnCurrencies(self):
-        params = {
-            "command": "returnCurrencies"
-        }
+        """
+        Returns information about currencies
+        """
+        pass
 
-        return await self.api_call(params=params)
-
+    @command_operator
     async def returnTradeHistory(self,
-                                 currencyPair="all",
+                                 currency_pair="all",
                                  start=datetime.now() - timedelta(days=1),
                                  end=datetime.now()):
-        "Returns the past 200 updates_handler for a given market, or all of the updates_handler between a range" \
-        "specified in UNIX timestamps by the "
-        start
-        " and "
-        end
-        " GET parameters."
-
-        params = {
-            "command": "returnTradeHistory",
-            "currencyPair": "BTC_NXT",
-            "start": int(time.mktime(start.timetuple())),
-            "end": int(time.mktime(end.timetuple()))
-        }
-
-        return await self.api_call(params=params)
+        """
+        Returns the past 200 trades for a given market, or up to 50,000 trades between a range specified in UNIX timestamps
+        by the "start" and "end" GET parameters.
+        """
+        pass
 
 
-class TradingApi():
+class TradingApi(BaseTradingApi):
     url = "https://poloniex.com/tradingApi?"
 
-    def __init__(self, session, api_key, api_sec):
-        super().__init__()
-
-        if type(api_key) is not str:
-            raise Exception("API_KEY must be string")
-
-        if type(api_sec) is not str:
-            raise Exception("SECRET_KEY must be string")
-
-        self.api_key = api_key
-        self.api_sec = api_sec.encode()
+    def __init__(self, session, *args, **kwargs):
         self.session = session
 
-    @property
-    def nonce(self):
-        return int(time.time() * 1000)
+        super(TradingApi, self).__init__(*args, **kwargs)
 
     async def api_call(self, *args, **kwargs):
-        # set nonce parameter in data
-        data = kwargs.get("data", {})
-        data.update(nonce=self.nonce)
-        kwargs.update(data=data)
+        data, headers = self.init_secure_date(kwargs.get('data', {}), kwargs.get('headers', {}))
 
-        e = urllib.parse.urlencode(data).encode()
-        auth = {
-            "Sign": hmac.new(self.api_sec, e, hashlib.sha512).hexdigest(),
-            "Key": self.api_key
-        }
-
-        # set auth in headers
-        headers = kwargs.get("headers", {})
-        headers.update(auth)
-        kwargs.update(headers=headers)
+        kwargs['data'] = data
+        kwargs['headers'] = headers
 
         async with self.session.post(self.url, *args, **kwargs) as response:
-            response = await response.json()
-            if ("error" in response) and (response["error"] is not None):
-                raise Exception(response["error"])
+            return await response.json()
 
-            return response
+    @command_operator
+    async def returnBalances(self):
+        """
+        Returns all of your available balances
+        """
+        pass
 
-    async def returnBalances(self, currencies=["BTC", "ETH"]):
-        "Returns all of your available balances"
+    @command_operator
+    async def returnCompleteBalances(self):
+        """
+        Returns all of your balances, including available balance, balance on orders, and the estimated BTC value of your balance.
+        """
+        pass
 
-        data = {
-            "command": "returnBalances",
-        }
+    @command_operator
+    async def returnDepositAddresses(self):
+        """
+        Returns all of your deposit addresses.
+        """
+        pass
 
-        response = await self.api_call(data=data)
-
-        # filter currencies
-        response = {currency: balance for currency, balance in response.items() if currency in currencies}
-        return response
-
-    async def returnCompleteBalances(self, currencies=["BTC", "ETH"]):
-        "Returns all of your balances, including available balance, balance on orders, and the estimated BTC value of your balance."
-
-        data = {
-            "command": "returnCompleteBalances"
-        }
-
-        response = await self.api_call(data=data)
-
-        # filter currencies
-        response = {currency: balance for currency, balance in response.items() if currency in currencies}
-        return response
-
-    async def returnDepositAddresses(self, currencies=["BTC", "ETH"]):
-        "Returns all of your deposit addresses."
-
-        data = {
-            "command": "returnDepositAddresses"
-        }
-
-        response = await self.api_call(data=data)
-
-        # filter currencies
-        response = {currency: address for currency, address in response.items() if currency in currencies}
-        return response
-
+    @command_operator
     async def generateNewAddress(self, currency):
-        "Generates a new deposit address for the currency specified by the "
-        currency
-        " POST parameter."
+        """
+        Generates a new deposit address for the specified currency.
+        """
+        pass
 
-        data = {
-            "command": "generateNewAddress",
-            "currency": currency,
-        }
+    @command_operator
+    async def returnDepositsWithdrawals(self,
+                                        start=datetime.now() - timedelta(days=1),
+                                        end=datetime.now()):
+        """
+        Returns your deposit and withdrawal history within a range, specified by the "start" and "end" POST parameters,
+        both of which should be given as UNIX timestamps
+        """
+        pass
 
-        response = await self.api_call(data=data)
+    @command_operator
+    async def returnOpenOrders(self, currency_pair="all"):
+        """
+        Returns your open orders for a given market, specified by the "currencyPair" POST parameter, e.g. "BTC_XCP".
+        Set "currencyPair" to "all" to return open orders for all markets.
+        """
+        pass
 
-        if response["success"] == 0:
-            if "address" in response:
-                raise Exception(response["address"])
-            elif "response" in response:
-                raise Exception(response["response"])
-
-        return response
-
-    async def returnDepositsWithdrawals(self, start=datetime.now() - timedelta(days=1), end=datetime.now()):
-        "Returns your deposit and withdrawal history within a range, specified by the "
-        start
-        " and "
-        end
-        "" \
-        "POST parameters, both of which should be given as UNIX timestamps."
-
-        data = {
-            "command": "returnDepositsWithdrawals",
-            "start": time.mktime(start.timetuple()),
-            "end": time.mktime(end.timetuple())
-        }
-
-        return await self.api_call(data=data)
-
-    async def returnOpenOrders(self, currencyPair="all"):
-        "Returns your open orders for a given market, specified by the "
-        currencyPair
-        " POST parameter," \
-        "e.g. "
-        BTC_XCP
-        ". Set "
-        currencyPair
-        " to "
-        all
-        " to return open orders for all markets."
-
-        if currencyPair != "all":
-            if currencyPair not in constants.CURRENCY_PAIRS:
-                raise Exception("currencyPair: {} not available".format(currencyPair))
-
-        data = {
-            "command": "returnOpenOrders",
-            "currencyPair": currencyPair
-        }
-
-        return await self.api_call(data=data)
-
+    @command_operator
     async def returnTradeHistory(self,
-                                 currencyPair="all",
+                                 currency_pair="all",
                                  start=datetime.now() - timedelta(days=1),
                                  end=datetime.now()):
-        "Returns your trade history for a given market, specified by the "
-        currencyPair
-        " POST parameter." \
-        "You may specify "
-        all
-        " as the currencyPair to receive your trade history for all markets." \
-        "You may optionally specify a range via "
-        start
-        " and/or "
-        end
-        " POST parameters, given in UNIX timestamp format"
+        """
+        Returns your trade history for a given market, specified by the "currencyPair" POST parameter.
+        You may specify "all" as the currencyPair to receive your trade history for all markets. You may optionally
+        specify a range via "start" and/or "end" POST parameters, given in UNIX timestamp format; if you do not specify
+        a range, it will be limited to one day.
+        """
+        pass
 
-        start = int(time.mktime(start.timetuple()))
-        end = int(time.mktime(end.timetuple()))
+    @command_operator
+    async def buy(self,
+                  currency_pair,
+                  rate,
+                  amount):
+        """
+        Places a limit buy order in a given market. Required POST parameters are "currencyPair", "rate", and "amount".
+        If successful, the method will return the order number
+        """
+        pass
 
-        data = {
-            "command": "returnTradeHistory",
-            "currencyPair": currencyPair,
-            "start": start,
-            "end": end
-        }
+    @command_operator
+    async def sell(self,
+                   currency_pair,
+                   rate,
+                   amount):
+        """
+        Places a sell order in a given market
+        """
+        pass
 
-        return await self.api_call(data=data)
-
-    async def buy(self, currencyPair, rate, amount):
-        if currencyPair not in constants.CURRENCY_PAIRS:
-            raise Exception("currencyPair: {} not available".format(currencyPair))
-
-        data = {
-            "command": "buy",
-            "rate": rate,
-            "currencyPair": currencyPair,
-            "amount": amount
-        }
-
-        return await self.api_call(data=data)
-
-    async def sell(self, currencyPair, rate, amount):
-        if currencyPair not in constants.CURRENCY_PAIRS:
-            raise Exception("currencyPair: {} not available".format(currencyPair))
-
-        data = {
-            "command": "sell",
-            "rate": rate,
-            "currencyPair": currencyPair,
-            "amount": amount
-        }
-
-        # TODO: save order
-
-        return await self.api_call(data=data)
-
-    async def cancelOrder(self, orderNumber):
-        # TODO: check that orderNumber exist
-
-        data = {
-            "command": "cancelOrder",
-            "orderNumber": orderNumber
-        }
-
-        return await self.api_call(data=data)
-
-    async def moveOrder(self):
-        data = {
-            "command": "moveOrder"
-        }
-
-        return await self.api_call(data=data)
-
-    async def returnActiveLoans(self, ):
-        data = {
-            "command": "returnActiveLoans"
-        }
-
-        return await self.api_call(data=data)
+    @command_operator
+    async def cancelOrder(self, order_number):
+        """
+        Cancels an order you have placed in a given market. Required POST parameter is "orderNumber"
+        """
+        pass

@@ -27,6 +27,7 @@ class WAMPClient():
         self.roles = roles
         self.serializer = serializer
         self.ws = None
+        self.need_stop = False
         self.connected = False
         self.handlers = {
             message.Welcome.MESSAGE_TYPE: self._on_welcome,
@@ -87,6 +88,10 @@ class WAMPClient():
                                            protocols=self.protocols) as ws:
             self.ws = ws
 
+            if self.need_stop:
+                await self.stop()
+                return
+
             hello = message.Hello(self.realm, self.roles)
             self.send(hello)
 
@@ -98,6 +103,8 @@ class WAMPClient():
     async def stop(self):
         if self.ws:
             await self.ws.close()
+        else:
+            self.need_stop = True
 
     def subscribe(self, handler, topic):
         request_id = random.randint(10 ** 14, 10 ** 15 - 1)

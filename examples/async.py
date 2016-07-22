@@ -20,9 +20,9 @@ class App(Application):
         self.logger.info(kwargs)
 
     async def main(self):
-        self.push_api.subscribe(topic="BTC_ETH", handler=self.trades)
-        self.push_api.subscribe(topic="ticker", handler=self.ticker)
-        volume = await self.public_api.return24Volume()
+        self.push.subscribe(topic="BTC_ETH", handler=self.trades)
+        self.push.subscribe(topic="ticker", handler=self.ticker)
+        volume = await self.public.return24hVolume()
 
         self.logger.info(volume)
 
