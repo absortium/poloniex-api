@@ -1,56 +1,57 @@
 import inspect
 import logging
+from functools import wraps
 
 import pp
 
 __author__ = 'andrew.shvv@gmail.com'
 
 
-class PoloniexLogger(logging.Logger):
-    def get_prev_method_name(self):
-        return inspect.stack()[2][3]
-
-    def info(self, msg, *args, **kwargs):
-        pretty_msg = pp.fmt(msg)
-        additional_description = "Func:  %s\n" % self.get_prev_method_name()
-        super().info(additional_description + pretty_msg, *args, **kwargs)
-
-    def warning(self, msg, *args, **kwargs):
-        pretty_msg = pp.fmt(msg)
-        additional_description = "Func: %s\n" % self.get_prev_method_name()
-        super().warning(additional_description + pretty_msg, *args, **kwargs)
-
-    def debug(self, msg, *args, **kwargs):
-        pretty_msg = pp.fmt(msg)
-        additional_description = "Func: %s\n" % self.get_prev_method_name()
-        super().debug(additional_description + pretty_msg, *args, **kwargs)
-
-    def exception(self, msg, *args, **kwargs):
-        pretty_msg = pp.fmt(msg)
-        additional_description = "Func: %s\n" % self.get_prev_method_name()
-        super().exception(additional_description + pretty_msg, *args, **kwargs)
+def get_prev_method_name():
+    return inspect.stack()[2][3]
 
 
-class LogMixin(object):
-    def __init__(self):
-        super().__init__()
+def pretty_wrapper(func):
+    @wraps(func)
+    def decorator(msg, *args, **kwargs):
+        pretty_msg = "Func:  %s\n" % get_prev_method_name()
 
-        # override the class
-        logging.setLoggerClass(PoloniexLogger)
+        if type(msg) == str:
+            pretty_msg += msg
+        else:
+            pretty_msg += pp.fmt(msg)
+        pretty_msg += "\n+ " + "- " * 30 + "+\n"
 
-        # create logger
-        name = '.'.join([__name__, self.__class__.__name__])
-        self.logger = logging.getLogger(name)
+        func(pretty_msg, *args, **kwargs)
 
-        # create console handler and set level to debug
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
+    return decorator
 
-        # create formatter
-        formatter = logging.Formatter('\nLevel: %(levelname)s - %(message)s')
 
-        # add formatter to ch
-        ch.setFormatter(formatter)
+def wrap_logger(logger):
+    logger.info = pretty_wrapper(logger.info)
+    logger.debug = pretty_wrapper(logger.debug)
+    logger.warning = pretty_wrapper(logger.warning)
+    logger.exception = pretty_wrapper(logger.exception)
+    return logger
 
-        # add ch to logger
-        self.logger.addHandler(ch)
+
+def getLogger(name, level=logging.DEBUG):
+    # create logger
+    logger = logging.getLogger(name)
+    logger = wrap_logger(logger)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+
+    # create formatter
+    formatter = logging.Formatter('\nLevel: %(levelname)s - %(name)s - %(message)s')
+
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(ch)
+
+    logger.setLevel(level)
+
+    return logger

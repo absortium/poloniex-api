@@ -1,16 +1,15 @@
-import logging
 import random
 
 from autobahn.wamp import message
 from autobahn.wamp.role import DEFAULT_CLIENT_ROLES
 from autobahn.wamp.serializer import JsonSerializer
 
-from poloniex.logger import LogMixin
+from poloniex.logger import getLogger
 
 __author__ = 'andrew.shvv@gmail.com'
 
 
-class WAMPClient(LogMixin):
+class WAMPClient():
     def __init__(self,
                  url,
                  session,
@@ -21,45 +20,45 @@ class WAMPClient(LogMixin):
 
         super().__init__()
 
-        self._url = url
-        self._session = session
-        self._protocols = protocols
-        self._realm = realm
-        self._roles = roles
-        self._serializer = serializer
-        self._ws = None
-        self._is_connected = False
-        self._handlers = {
+        self.url = url
+        self.session = session
+        self.protocols = protocols
+        self.realm = realm
+        self.roles = roles
+        self.serializer = serializer
+        self.ws = None
+        self.connected = False
+        self.handlers = {
             message.Welcome.MESSAGE_TYPE: self._on_welcome,
             message.Subscribed.MESSAGE_TYPE: self._on_subscribed,
             message.Event.MESSAGE_TYPE: self._on_event,
         }
 
-        self._waiting_subscriptions = {}
-        self._registered_subscriptions = {}
-        self.logger.setLevel(logging.DEBUG)
+        self.queue = {}
+        self.subscriptions = {}
+        self.logger = getLogger(__name__)
 
     def get_handler(self, message_type):
-
-        handler = self._handlers.get(message_type)
+        handler = self.handlers.get(message_type)
         if handler is None:
             handler = self._on_other
         return handler
 
     @property
     def subsciptions(self):
-        return [self._waiting_subscriptions, self._registered_subscriptions]
+        return [self.queue, self.subscriptions]
 
     async def _on_welcome(self, msg):
-        self._is_connected = True
-        for request_id, subsciption in self._waiting_subscriptions.items():
-            topic = subsciption['topic']
+        self.connected = True
+
+        for request_id, subscription in self.queue.items():
+            topic = subscription['topic']
             subscribe = message.Subscribe(request=request_id, topic=topic)
-            self._send(subscribe)
+            self.send(subscribe)
 
     async def _on_event(self, event):
         subscription_id = event.subscription
-        subscription = self._registered_subscriptions[subscription_id]
+        subscription = self.subscriptions[subscription_id]
 
         handler = subscription['handler']
         await handler(event.args)
@@ -68,38 +67,37 @@ class WAMPClient(LogMixin):
         request_id = msg.request
         subscription_id = msg.subscription
 
-        subscription = self._waiting_subscriptions[request_id]
+        subscription = self.queue.pop(request_id)
         subscription['request_id'] = request_id
-        self._registered_subscriptions[subscription_id] = subscription
-        del self._waiting_subscriptions[request_id]
+        self.subscriptions[subscription_id] = subscription
 
     async def _on_other(self, msg):
-        raise Exception("Unimplemented handler")
+        raise NotImplementedError("Unimplemented handler")
 
-    def _send(self, msg):
-        payload, _ = self._serializer.serialize(msg)
-        self._ws.send_str(payload.decode())
+    def send(self, msg):
+        payload, _ = self.serializer.serialize(msg)
+        self.ws.send_str(payload.decode())
 
-    def _recv(self, s):
-        messages = self._serializer.unserialize(s.encode())
+    def recv(self, s):
+        messages = self.serializer.unserialize(s.encode())
         return messages[0]
 
     async def start(self):
-        async with self._session.ws_connect(url=self._url, protocols=self._protocols) as ws:
-            self._ws = ws
+        async with self.session.ws_connect(url=self.url,
+                                           protocols=self.protocols) as ws:
+            self.ws = ws
 
-            hello = message.Hello(self._realm, self._roles)
-            self._send(hello)
+            hello = message.Hello(self.realm, self.roles)
+            self.send(hello)
 
             async for ws_msg in ws:
-                wamp_msg = self._recv(ws_msg.data)
+                wamp_msg = self.recv(ws_msg.data)
                 wamp_handler = self.get_handler(wamp_msg.MESSAGE_TYPE)
                 await wamp_handler(wamp_msg)
 
     async def stop(self):
-        # TODO: send stop, receive ok, close socket
-        # if self._ws is not None:
-        await self._ws.close()
+        if self.ws:
+            await self.ws.close()
 
     def subscribe(self, handler, topic):
         request_id = random.randint(10 ** 14, 10 ** 15 - 1)
@@ -108,12 +106,7 @@ class WAMPClient(LogMixin):
             'handler': handler
         }
 
-        self._waiting_subscriptions.update({request_id: subscription})
-
-        if self._is_connected:
-            subscribe = message.Subscribe(request=request_id, topic=topic)
-            self._send(subscribe)
-
-    async def unsubscribe(self, handler, topic):
-        # TODO: send unsibscibe, receive ok
-        pass
+        if self.connected:
+            self.send(message.Subscribe(request=request_id, topic=topic))
+        else:
+            self.queue[request_id] = subscription
