@@ -52,21 +52,21 @@ class BasePublicApi:
         raise NotImplementedError("'api_call' method should be implemented.")
 
     def get_params(self, command, **kwargs):
-        currency_pair = kwargs.get('currency_pair')
-        if currency_pair and currency_pair not in constants.CURRENCY_PAIRS + ['all']:
+        currency_pair = kwargs.get("currency_pair")
+        if currency_pair and currency_pair not in constants.CURRENCY_PAIRS + ["all"]:
             raise PoloniexError("Currency pair '{}' not available.".format(currency_pair))
 
-        depth = kwargs.get('depth')
+        depth = kwargs.get("depth")
 
-        start = kwargs.get('start')
+        start = kwargs.get("start")
         if start:
             start = time.mktime(start.timetuple())
 
-        end = kwargs.get('end')
+        end = kwargs.get("end")
         if end:
             end = time.mktime(end.timetuple())
 
-        period = kwargs.get('period')
+        period = kwargs.get("period")
         if period and period not in constants.CHART_DATA_PERIODS:
             raise PoloniexError("Period '{}' not available.".format(period))
 
@@ -158,23 +158,24 @@ class BaseTradingApi:
         return data, headers
 
     def get_params(self, command, **kwargs):
-        currency_pair = kwargs.get('currency_pair')
-        if currency_pair and currency_pair not in constants.CURRENCY_PAIRS + ['all']:
+        currency_pair = kwargs.get("currency_pair")
+        if currency_pair and currency_pair not in constants.CURRENCY_PAIRS + ["all"]:
             raise PoloniexError("Currency pair '{}' not available.".format(currency_pair))
 
-        currency = kwargs.get('currency')
+        currency = kwargs.get("currency")
 
-        start = kwargs.get('start')
+        start = kwargs.get("start")
         if start:
             start = time.mktime(start.timetuple()),
 
-        end = kwargs.get('end')
+        end = kwargs.get("end")
         if end:
             end = time.mktime(end.timetuple())
 
-        rate = kwargs.get('rate')
-        amount = kwargs.get('amount')
-        order_number = kwargs.get('order_number')
+        rate = kwargs.get("rate")
+        amount = kwargs.get("amount")
+        address = kwargs.get("address")
+        order_number = kwargs.get("order_number")
 
         for case in switch(command):
             if case("returnBalances"):
@@ -227,6 +228,14 @@ class BaseTradingApi:
                 }
                 break
 
+            if case("returnOrderTrades"):
+                method = "post"
+                params = {
+                    "command": command,
+                    "orderNumber": order_number
+                }
+                break
+
             if case("buy"):
                 method = "post"
                 params = {
@@ -244,6 +253,15 @@ class BaseTradingApi:
                     "currencyPair": currency_pair,
                     "rate": rate,
                     "amount": amount
+                }
+                break
+
+            if case("withdraw"):
+                method = "post"
+                params = {
+                    "currency": currency,
+                    "amount": amount,
+                    "address": address
                 }
                 break
 

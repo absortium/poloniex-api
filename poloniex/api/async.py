@@ -267,6 +267,13 @@ class TradingApi(BaseTradingApi):
         pass
 
     @command_operator
+    async def returnOrderTrades(self, order_number):
+        """
+        Returns all trades involving a given order, specified by the "orderNumber" POST parameter. If no trades for the order
+        have occurred or you specify an order that does not belong to you, you will receive an error.
+        """
+
+    @command_operator
     async def buy(self,
                   currency_pair,
                   rate,
@@ -284,6 +291,15 @@ class TradingApi(BaseTradingApi):
                    amount):
         """
         Places a sell order in a given market
+        """
+        pass
+
+    @command_operator
+    async def withdraw(self, currency, amount, address):
+        """
+        Immediately places a withdrawal for a given currency, with no email confirmation. In order to use this method,
+        the withdrawal privilege must be enabled for your API key. Required POST parameters are "currency", "amount",
+        and "address". For XMR withdrawals, you may optionally specify "paymentId".
         """
         pass
 
