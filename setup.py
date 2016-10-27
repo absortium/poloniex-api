@@ -13,7 +13,8 @@ setup(
     version='0.1',
     packages=[
         'poloniex',
-        'poloniex.wamp'
+        'poloniex.wamp',
+        'poloniex.api'
     ],
     include_package_data=True,
     description='Python Poloniex API',
@@ -25,7 +26,8 @@ setup(
         'asyncio',
         'aiohttp',
         'autobahn',
-        'pp-ez'
+        'pp-ez',
+        'requests'
     ],
     classifiers=[
         'Operating System :: OS Independent',

@@ -17,7 +17,7 @@ logger = getLogger(__name__)
 def command_operator(func):
     if iscoroutinefunction(func):
         async def async_decorator(self, *args, **kwargs):
-            method, params = self.get_params(func.__name__)
+            method, params = self.get_params(func.__name__, **kwargs)
 
             if method == "post":
                 response = await self.api_call(data=params)
@@ -31,7 +31,7 @@ def command_operator(func):
         return async_decorator
     else:
         def decorator(self, *args, **kwargs):
-            method, params = self.get_params(func.__name__)
+            method, params = self.get_params(func.__name__, **kwargs)
 
             if method == "post":
                 response = self.api_call(data=params)
