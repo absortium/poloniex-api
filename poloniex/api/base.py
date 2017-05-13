@@ -26,7 +26,7 @@ def command_operator(func):
             else:
                 raise PoloniexError("Not available method '{}'".format(method))
 
-            return self.response_handler(response)
+            return self.response_handler(response, command=func.__name__)
 
         return async_decorator
     else:
@@ -40,7 +40,7 @@ def command_operator(func):
             else:
                 raise PoloniexError("Not available method '{}'".format(method))
 
-            return self.response_handler(response)
+            return self.response_handler(response, command=func.__name__)
 
         return decorator
 
