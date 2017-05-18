@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import time
 import urllib
-from inspect import iscoroutinefunction
+from inspect import signature, iscoroutinefunction
 
 from poloniex import constants
 from poloniex.error import PoloniexError, AddressAlreadyExist
@@ -14,9 +14,16 @@ __author__ = "andrew.shvv@gmail.com"
 logger = getLogger(__name__)
 
 
+def apply_defaults(func, *args, **kwargs):
+    kwargs = signature(func).bind_partial(*args, **kwargs)
+    kwargs.apply_defaults()
+    return dict(kwargs.arguments)
+
+
 def command_operator(func):
     if iscoroutinefunction(func):
         async def async_decorator(self, *args, **kwargs):
+            kwargs = apply_defaults(func, *args, **kwargs)
             method, params = self.get_params(func.__name__, **kwargs)
 
             if method == "post":
@@ -31,6 +38,7 @@ def command_operator(func):
         return async_decorator
     else:
         def decorator(self, *args, **kwargs):
+            kwargs = apply_defaults(func, *args, **kwargs)
             method, params = self.get_params(func.__name__, **kwargs)
 
             if method == "post":
