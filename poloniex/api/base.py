@@ -68,11 +68,11 @@ class BasePublicApi:
 
         start = kwargs.get("start")
         if start:
-            start = time.mktime(start.timetuple())
+            start = start.timestamp()
 
         end = kwargs.get("end")
         if end:
-            end = time.mktime(end.timetuple())
+            end = end.timestamp()
 
         period = kwargs.get("period")
         if period and period not in constants.CHART_DATA_PERIODS:
@@ -174,11 +174,11 @@ class BaseTradingApi:
 
         start = kwargs.get("start")
         if start:
-            start = time.mktime(start.timetuple()),
+            start = start.timestamp()
 
         end = kwargs.get("end")
         if end:
-            end = time.mktime(end.timetuple())
+            end = end.timestamp()
 
         rate = kwargs.get("rate")
         amount = kwargs.get("amount")
