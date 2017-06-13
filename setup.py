@@ -21,6 +21,7 @@ setup(
     long_description=README,
     url='https://github.com/absortium/poloniex.git',
     author='Andrey Samokhvalov',
+    license='MIT',
     author_email='andrew.shvv@gmail.com',
     install_requires=[
         'asyncio',
