@@ -79,7 +79,13 @@ class TradingApi(BaseTradingApi):
         kwargs['headers'] = headers
 
         response = requests.post(self.url, *args, **kwargs)
-        return response.json()
+        try:
+            return response.json()
+        except Exception as e:
+            print(e)
+            print(response.status_code)
+            print(response.content)
+            raise e
 
     @command_operator
     def returnBalances(self):
