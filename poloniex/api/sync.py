@@ -13,7 +13,13 @@ class PublicApi(BasePublicApi):
 
     def api_call(self, *args, **kwargs):
         response = requests.get(self.url, *args, **kwargs)
-        return response.json()
+        try:
+            return response.json()
+        except Exception as e:
+            print(e)
+            print(response.status_code)
+            print(response.content)
+            raise e
 
     @command_operator
     def returnTicker(self):
