@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import requests
 
+from poloniex.error import PoloniexError
 from poloniex.api.base import command_operator, BasePublicApi, BaseTradingApi
 
 __author__ = 'andrew.shvv@gmail.com'
@@ -13,7 +14,11 @@ class PublicApi(BasePublicApi):
 
     def api_call(self, *args, **kwargs):
         response = requests.get(self.url, *args, **kwargs)
-        return response.json()
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise PoloniexError('Got {} when calling {}.'.format(response.status_code, self.url))
 
     @command_operator
     def returnTicker(self):
@@ -79,7 +84,10 @@ class TradingApi(BaseTradingApi):
         kwargs['headers'] = headers
 
         response = requests.post(self.url, *args, **kwargs)
-        return response.json()
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise PoloniexError('Got {} when calling {}.'.format(response.status_code, self.url))
 
     @command_operator
     def returnBalances(self):
