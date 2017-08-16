@@ -61,8 +61,6 @@ class BasePublicApi:
 
     def get_params(self, command, **kwargs):
         currency_pair = kwargs.get("currency_pair")
-        if currency_pair and currency_pair not in constants.CURRENCY_PAIRS + ["all"]:
-            raise PoloniexError("Currency pair '{}' not available.".format(currency_pair))
 
         depth = kwargs.get("depth")
 
@@ -167,8 +165,6 @@ class BaseTradingApi:
 
     def get_params(self, command, **kwargs):
         currency_pair = kwargs.get("currency_pair")
-        if currency_pair and currency_pair not in constants.CURRENCY_PAIRS + ["all"]:
-            raise PoloniexError("Currency pair '{}' not available.".format(currency_pair))
 
         currency = kwargs.get("currency")
 
